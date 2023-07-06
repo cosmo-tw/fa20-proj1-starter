@@ -26,52 +26,70 @@
 Image *readData(char *filename) 
 {
 	//YOUR CODE HERE
-	FILE *fp = fopen("filename", "r");
+	FILE *fp = fopen(filename, "r");
+    if (fp == NULL) {
+        printf("Failed to open file '%s' for reading.\n", filename);
+        return NULL;
+    }
 
-	if(fp != NULL) {
-		Image *img = (Image *)malloc(sizeof(Image));
-		if (img == NULL) {
+    Image *image = (Image *)malloc(sizeof(Image));
+    if (image == NULL) {
         printf("Failed to allocate memory for the Image struct.\n");
         fclose(fp);
         return NULL;
-    	}
+    }
 
-		char buf[3];
-		int maxValue = 0;
-		fscanf(fp, "%s", buf); // read the p3
-		if (strcmp(buf, "P3") != 0) {
+    char buf[3];
+    fscanf(fp, "%2s", buf);
+    if (strcmp(buf, "P3") != 0) {
         printf("Invalid PPM file format. Expected P3 magic number.\n");
         fclose(fp);
-        free(img);
+        free(image);
         return NULL;
-    	}
+    }
 
+    fscanf(fp, "%u", &(image->cols));
+    fscanf(fp, "%u", &(image->rows));
 
-		fscanf(fp, "%d", &img->cols); // read image in cols
-		fscanf(fp, "%d", &img->rows);
-		fscanf(fp, "%d", &maxValue);
+    image->image = (Color **)malloc(image->rows * sizeof(Color *));
+    if (image->image == NULL) {
+        printf("Failed to allocate memory for the image data.\n");
+        fclose(fp);
+        free(image);
+        return NULL;
+    }
 
-		img->image = (Color **)malloc(img->rows * sizeof(Color *));
-		if (img->image == NULL) {
-			printf("Failed to allocate memory for the image data.\n");
-			fclose(fp);
-			free(img);
-			return NULL;
-		}
+    for (uint32_t i = 0; i < image->rows; i++) {
+        image->image[i] = (Color *)malloc(image->cols * sizeof(Color));
+        if (image->image[i] == NULL) {
+            printf("Failed to allocate memory for the image data.\n");
+            fclose(fp);
+            freeImage(image);
+            return NULL;
+        }
+    }
 
-		for (uint32_t i = 0; i < img->rows; i++) {
-        	for (uint32_t j = 0; j < img->cols; j++) {
-				Color *color = &(img->image[i][j]);
-				fscanf(fp, "%hhu", &(color->R));
-				fscanf(fp, "%hhu", &(color->G));
-				fscanf(fp, "%hhu", &(color->B));
-        	}
-    	}
-    
-		fclose(fp);
-		return img;
+    int maxColorValue;
+    fscanf(fp, "%d", &maxColorValue);
 
-	}
+    if (maxColorValue != 255) {
+        printf("Invalid PPM file format. Only 8-bit color depths are supported.\n");
+        fclose(fp);
+        freeImage(image);
+        return NULL;
+    }
+
+    for (uint32_t i = 0; i < image->rows; i++) {
+        for (uint32_t j = 0; j < image->cols; j++) {
+            Color *color = &(image->image[i][j]);
+            fscanf(fp, "%hhu", &(color->R));
+            fscanf(fp, "%hhu", &(color->G));
+            fscanf(fp, "%hhu", &(color->B));
+        }
+    }
+
+    fclose(fp);
+    return image;
 
 }
 
